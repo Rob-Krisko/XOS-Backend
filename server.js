@@ -46,8 +46,8 @@ app.post('/register', async (req, res) => {
 
     const user = new User({ username, password: hashedPassword, email, fullName });
     await user.save();
-
-    return res.status(201).json({ message: 'User registered successfully' });
+    return res.status(201).json({ success: true, message: 'User registered successfully' });
+    
 });
 
 // Login Endpoint
