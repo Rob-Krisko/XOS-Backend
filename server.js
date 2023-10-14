@@ -72,7 +72,7 @@ app.listen(PORT, () => {
     console.log(`Server started on http://localhost:${PORT}`);
 });
 
-// Handle app termination gracefully
+// Handle app termination
 process.on('SIGINT', () => {
     mongoose.connection.close(() => {
         console.log('Closed MongoDB connection.');
