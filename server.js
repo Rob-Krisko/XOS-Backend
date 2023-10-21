@@ -12,6 +12,13 @@ const PORT = 5000;
 const SECRET_KEY = process.env.SECRET_KEY;
 const MONGO_URI = process.env.MONGO_URI;
 
+// Display Environment Variables for Debugging
+console.log("Environment Variables:");
+console.log("SECRET_KEY:", SECRET_KEY ? "Exists but hidden for security" : "Not Set");
+console.log("MONGO_URI:", MONGO_URI ? "Exists but hidden for security" : "Not Set");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+// End of Debugging
+
 const corsOptions = {
     origin: 'http://localhost:3000',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -46,15 +53,20 @@ const verifyJWT = (req, res, next) => {
     });
 };
 
-// MongoDB connection
+// MongoDB connection with debugging
 mongoose.connect(MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
     console.log("Connected to MongoDB Atlas");
 }).catch((error) => {
-    console.error("Error connecting to MongoDB:", error);
+    console.error("MongoDB connection error details:", error);
+    console.log("Using MONGO_URI:", MONGO_URI);
 });
+
+// Log the MongoDB connection state
+console.log('MongoDB initial connection state:', mongoose.connection.readyState);
+
 
 // database models
 const UserSchema = new mongoose.Schema({
@@ -79,10 +91,21 @@ app.get('/', (req, res) => {
     res.send('Hello from the server!');
 });
 
+// Check MongoDB connection state
+const checkDbConnection = () => {
+    const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+    const currentState = states[mongoose.connection.readyState];
+    console.log('MongoDB current connection state:', currentState);
+    if (currentState !== 'connected') {
+        throw new Error('Database not in a connected state');
+    }
+};
+
 // Registration Endpoint
 app.post('/register', async (req, res) => {
     console.log("Register endpoint hit with data:", req.body);
     try {
+        checkDbConnection(); // Check MongoDB connection state
         const { username, password, email, fullName } = req.body;
         const existingUser = await User.findOne({ username });
         if (existingUser) {
@@ -101,6 +124,12 @@ app.post('/register', async (req, res) => {
         return res.status(201).json({ success: true, message: 'User registered successfully' });
     } catch (err) {
         console.error("Registration error:", err);
+        
+        // Check if it's a timeout error
+        if (err.kind === 'ObjectId' && err.reason && err.reason.message && err.reason.message.includes('timed out')) {
+            return res.status(500).json({ message: 'Database operation timed out', error: err.message });
+        }
+        
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
@@ -109,6 +138,7 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     console.log("Login endpoint hit with data:", req.body);
     try {
+        checkDbConnection(); // Check MongoDB connection state
         const { username, password } = req.body;
         const user = await User.findOne({ username });
         if (!user) {
@@ -124,6 +154,12 @@ app.post('/login', async (req, res) => {
         return res.status(200).json({ message: 'Login successful', token, username: user.username });
     } catch (err) {
         console.error("Login error:", err);
+        
+        // Check if it's a timeout error
+        if (err.kind === 'ObjectId' && err.reason && err.reason.message && err.reason.message.includes('timed out')) {
+            return res.status(500).json({ message: 'Database operation timed out', error: err.message });
+        }
+        
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
@@ -180,14 +216,15 @@ if (process.env.NODE_ENV === 'production') {
     });
 }
 
-// Default error handler
+// Default error handler with additional debugging
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Caught by default error handler:", err.stack);
+    res.status(500).json({ message: 'Internal server error', errorDetails: err.message });
 });
 
 app.listen(PORT, () => {
     console.log(`Server started on http://localhost:${PORT}`);
+    console.log('MongoDB connection state after server start:', mongoose.connection.readyState);
 });
 
 // handle database disconnections
@@ -200,4 +237,11 @@ process.on('SIGINT', () => {
         console.log('Closed MongoDB connection.');
         process.exit(0);
     });
+});
+
+// Catch unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Exit the process to prevent potential issues
+    process.exit(1);
 });
