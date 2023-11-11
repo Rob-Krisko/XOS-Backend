@@ -18,4 +18,14 @@ const UserProfileSchema = new mongoose.Schema({
 
 const UserProfile = mongoose.model('UserProfile', UserProfileSchema);
 
-module.exports = { User, UserProfile };
+const EventSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    title: String,
+    start: Date,
+    end: Date,
+    allDay: Boolean
+});
+
+const Event = mongoose.model('Event', EventSchema);
+
+module.exports = { User, UserProfile, Event };

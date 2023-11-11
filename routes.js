@@ -149,7 +149,7 @@ router.get('/profile/:username', verifyJWT, async (req, res) => {
 });
 
 
-router.put('/profile/:username/update', verifyJWT, async (req, res) => {
+router.put('/profile/:username/update', verifyJWT, async (req, res) => { 
     console.log("Profile update endpoint hit for username:", req.params.username, "with data:", req.body);
     try {
         const { username } = req.params;
@@ -169,6 +169,61 @@ router.put('/profile/:username/update', verifyJWT, async (req, res) => {
     } catch (err) {
         console.error("Updating profile error:", err);
         return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+});
+
+
+
+router.get('/api/userid/:username', verifyJWT, async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.params.username });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json({ userId: user._id.toString() });
+    } catch (err) {
+        res.status(500).json({ message: 'Error fetching user ID', error: err.message });
+    }
+});
+
+// Get events for a specific user
+router.get('/events/:userId', verifyJWT, async (req, res) => {
+    try {
+        const events = await Event.find({ userId: req.params.userId });
+        res.status(200).json(events);
+    } catch (err) {
+        res.status(500).json({ message: 'Error fetching events', error: err.message });
+    }
+});
+
+// Create a new event
+router.post('/events', verifyJWT, async (req, res) => {
+    try {
+        const newEvent = new Event(req.body);
+        await newEvent.save();
+        res.status(201).json(newEvent);
+    } catch (err) {
+        res.status(500).json({ message: 'Error creating event', error: err.message });
+    }
+});
+
+// Update an event
+router.put('/events/:eventId', verifyJWT, async (req, res) => {
+    try {
+        const updatedEvent = await Event.findByIdAndUpdate(req.params.eventId, req.body, { new: true });
+        res.status(200).json(updatedEvent);
+    } catch (err) {
+        res.status(500).json({ message: 'Error updating event', error: err.message });
+    }
+});
+
+// Delete an event
+router.delete('/events/:eventId', verifyJWT, async (req, res) => {
+    try {
+        await Event.findByIdAndDelete(req.params.eventId);
+        res.status(200).json({ message: 'Event deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ message: 'Error deleting event', error: err.message });
     }
 });
 
