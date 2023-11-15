@@ -5,8 +5,9 @@ const mongoose = require('mongoose');
 const { checkDbConnection } = require('./dbHelpers');
 const { MONGO_URI, SECRET_KEY, corsOptions } = require('./config');
 
-const { User, UserProfile } = require('./models');
+const { User, UserProfile, Event } = require('./models');
 const { verifyJWT, verifyAdmin } = require('./middleware');
+
 
 const router = express.Router();
 
@@ -111,12 +112,12 @@ router.post('/login', async (req, res) => {
             message: 'Login successful', 
             token, 
             username: user.username,
-            isAdmin: user.isAdmin  // Include isAdmin field in the response
+            userId: user._id,
+            isAdmin: user.isAdmin
         });
     } catch (err) {
         console.error("Login error:", err);
         
-        // Check if it's a timeout error
         if (err.kind === 'ObjectId' && err.reason && err.reason.message && err.reason.message.includes('timed out')) {
             return res.status(500).json({ message: 'Database operation timed out', error: err.message });
         }
@@ -124,6 +125,7 @@ router.post('/login', async (req, res) => {
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
+
 
 
 // profile update endpoints
@@ -172,59 +174,70 @@ router.put('/profile/:username/update', verifyJWT, async (req, res) => {
     }
 });
 
-
-
-router.get('/api/userid/:username', verifyJWT, async (req, res) => {
-    try {
-        const user = await User.findOne({ username: req.params.username });
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        res.status(200).json({ userId: user._id.toString() });
-    } catch (err) {
-        res.status(500).json({ message: 'Error fetching user ID', error: err.message });
-    }
-});
-
 // Get events for a specific user
-router.get('/events/:userId', verifyJWT, async (req, res) => {
+router.get('/events', verifyJWT, async (req, res) => {
+    console.log(`Fetching events for user ID: ${req.userId}`);
     try {
-        const events = await Event.find({ userId: req.params.userId });
+        const events = await Event.find({ userId: req.userId });
+        console.log(`Found ${events.length} events for user ID ${req.userId}`);
         res.status(200).json(events);
     } catch (err) {
+        console.error(`Error fetching events for user ID ${req.userId}: ${err.message}`);
         res.status(500).json({ message: 'Error fetching events', error: err.message });
     }
 });
 
+
 // Create a new event
 router.post('/events', verifyJWT, async (req, res) => {
+    console.log('Attempting to create a new event:', req.body);
     try {
         const newEvent = new Event(req.body);
         await newEvent.save();
+        console.log('Event created:', newEvent);
         res.status(201).json(newEvent);
     } catch (err) {
+        console.error(`Error creating event: ${err.message}`);
         res.status(500).json({ message: 'Error creating event', error: err.message });
     }
 });
 
+
 // Update an event
 router.put('/events/:eventId', verifyJWT, async (req, res) => {
+    console.log(`Updating event with ID ${req.params.eventId}:`, req.body);
     try {
         const updatedEvent = await Event.findByIdAndUpdate(req.params.eventId, req.body, { new: true });
+        if (!updatedEvent) {
+            console.error(`Event not found for ID: ${req.params.eventId}`);
+            return res.status(404).json({ message: 'Event not found' });
+        }
+        console.log('Event updated:', updatedEvent);
         res.status(200).json(updatedEvent);
     } catch (err) {
+        console.error(`Error updating event with ID ${req.params.eventId}: ${err.message}`);
         res.status(500).json({ message: 'Error updating event', error: err.message });
     }
 });
 
+
 // Delete an event
 router.delete('/events/:eventId', verifyJWT, async (req, res) => {
+    console.log(`Deleting event with ID: ${req.params.eventId}`);
     try {
-        await Event.findByIdAndDelete(req.params.eventId);
+        const event = await Event.findByIdAndDelete(req.params.eventId);
+        if (!event) {
+            console.error(`Event not found for ID: ${req.params.eventId}`);
+            return res.status(404).json({ message: 'Event not found' });
+        }
+        console.log('Event deleted:', req.params.eventId);
         res.status(200).json({ message: 'Event deleted successfully' });
     } catch (err) {
+        console.error(`Error deleting event with ID ${req.params.eventId}: ${err.message}`);
         res.status(500).json({ message: 'Error deleting event', error: err.message });
     }
 });
+
+
 
 module.exports = router;

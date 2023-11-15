@@ -4,7 +4,7 @@ const { SECRET_KEY } = require('./config');
 
 // token verification middleware
 const verifyJWT = (req, res, next) => {
-    console.log("verifyJWT middleware hit"); 
+    console.log("verifyJWT middleware hit");
     const token = req.headers['authorization'];
     if (!token) {
         console.error("No authorization header found");
@@ -12,21 +12,22 @@ const verifyJWT = (req, res, next) => {
     }
 
     const splitted = token.split(' ');
-
-    if (splitted.length !== 2) {
-        console.error("Authorization header format is wrong");
+    if (splitted.length !== 2 || splitted[0] !== 'Bearer') {
+        console.error("Authorization header format is wrong or missing 'Bearer'");
         return res.status(403).json({ message: 'Malformed token.' });
     }
-    
+
     jwt.verify(splitted[1], SECRET_KEY, (err, decoded) => {
         if (err) {
             console.error(`Failed to authenticate token (${splitted[1]}):`, err);
             return res.status(403).json({ message: 'Failed to authenticate token.' });
         }
+        console.log(`Token verified successfully for user ID: ${decoded.userId}`);
         req.userId = decoded.userId;
         next();
     });
 };
+
 
 
 // admin verification middleware
