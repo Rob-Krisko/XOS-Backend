@@ -26,6 +26,16 @@ const EventSchema = new mongoose.Schema({
     allDay: Boolean
 });
 
-const Event = mongoose.model('Event', EventSchema);
+const Event = mongoose.model('Event', EventSchema); 
 
-module.exports = { User, UserProfile, Event };
+const documentSchema = new mongoose.Schema({
+    name: { type: String, required: true }, // Add name field
+    content: { type: String, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Referencing User model
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+});
+
+const Document = mongoose.model('Document', documentSchema);
+
+module.exports = { User, UserProfile, Event, Document };

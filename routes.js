@@ -6,7 +6,9 @@ const { checkDbConnection } = require('./dbHelpers');
 const { MONGO_URI, SECRET_KEY, corsOptions } = require('./config');
 
 const { User, UserProfile, Event } = require('./models');
+const { Document } = require('./models');
 const { verifyJWT, verifyAdmin } = require('./middleware');
+
 
 
 const router = express.Router();
@@ -24,7 +26,6 @@ router.get('/admin/users', verifyJWT, verifyAdmin, async (req, res) => {
         const users = await User.find().lean();
         const profiles = await UserProfile.find({ userId: { $in: users.map(u => u._id) } }).lean();
 
-        // Attach profiles to corresponding users
         users.forEach(user => {
             user.profile = profiles.find(profile => profile.userId.toString() === user._id.toString()) || {};
         });
@@ -136,7 +137,7 @@ router.get('/profile/:username', verifyJWT, async (req, res) => {
         const user = await User.findOne({ username });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
-        }
+        } 
         
         const profile = await UserProfile.findOne({ userId: user._id }).populate('userId', 'username email fullName');
 
@@ -235,6 +236,50 @@ router.delete('/events/:eventId', verifyJWT, async (req, res) => {
     } catch (err) {
         console.error(`Error deleting event with ID ${req.params.eventId}: ${err.message}`);
         res.status(500).json({ message: 'Error deleting event', error: err.message });
+    }
+});
+
+// Save a document
+router.post('/api/documents/save', verifyJWT, async (req, res) => {
+    const { name, content } = req.body;
+    const userId = req.userId;
+    try {
+        const newDocument = new Document({ name, content, userId });
+        await newDocument.save();
+        res.status(200).json({ message: 'Document saved successfully', documentId: newDocument._id });
+    } catch (error) {
+        console.error("Save document error:", error);
+        res.status(500).json({ message: 'Error saving document', error: error.message });
+    }
+});
+
+
+// Load a document
+router.get('/api/documents/load/:docId', verifyJWT, async (req, res) => {
+    const { docId } = req.params;
+    try {
+        const document = await Document.findById(docId);
+        if (!document) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+        res.status(200).json(document);
+    } catch (error) {
+        console.error("Load document error:", error);
+        res.status(500).json({ message: 'Error loading document', error: error.message });
+    }
+});
+
+
+
+// Fetch all documents for a specific user
+router.get('/api/documents', verifyJWT, async (req, res) => {
+    const userId = req.userId;
+    try {
+        const documents = await Document.find({ userId }).sort({ updatedAt: -1 });
+        res.status(200).json(documents);
+    } catch (error) {
+        console.error("Fetch documents error:", error);
+        res.status(500).json({ message: 'Error fetching documents', error: error.message });
     }
 });
 
